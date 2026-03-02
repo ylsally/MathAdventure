@@ -1,7 +1,7 @@
 import streamlit as st
 import random
 
-# --- 1. THE ADVANCED PROBLEM GENERATOR ---
+# --- 1. THE PROBLEM GENERATOR ---
 def generate_math_problem(topic, level):
     themes = [
         {"item": "chanterelles 🍄", "action": "foraged"},
@@ -12,10 +12,7 @@ def generate_math_problem(topic, level):
     theme = random.choice(themes)
     
     if topic == "Fractions (Word Problems)":
-        # Randomly choose between 3 logic types
         logic_type = random.choice(["remainder", "comparison", "reverse"])
-        
-        # Difficulty scales: Pool of denominators grows with level
         max_denom = min(5 + (level // 2), 12) 
         denom_pool = list(range(2, max_denom + 1))
         
@@ -25,7 +22,7 @@ def generate_math_problem(topic, level):
             rem = total - (total // d1)
             ans = rem - (rem // d2)
             story = (f"You {theme['action']} {total} {theme['item']}. You gave 1/{d1} to a friend. "
-                     f"Then you gave 1/{d2} of the **remaining** to your teacher. How many are left?")
+                     f"Then you gave 1/{d2} of the **remaining** items to your teacher. How many are left?")
             visual = f"Step 1: 🟦" * (total // d1) + "⬜" * rem + f"\n(Blue = Friend's, White = Remainder)"
             return story, ans, visual
 
@@ -44,24 +41,25 @@ def generate_math_problem(topic, level):
             left = (ans_start // d1) * (d1 - 1)
             story = (f"After giving away 1/{d1} of your {theme['item']}, you have {left} left. "
                      f"How many did you start with?")
-            visual = f"What you have ({(d1-1)}/{d1}): {'⬜' * left}\nWhat's missing (1/{d1}): {'❓' * (ans_start // d1)}"
+            visual = f"Current ({(d1-1)}/{d1}): {'⬜' * left}\nMissing (1/{d1}): {'❓' * (ans_start // d1)}"
             return story, ans_start, visual
 
     elif topic == "Geometry":
         l, w = random.randint(2, 5 + level), random.randint(2, 4 + level)
-        return f"What is the AREA of a {l}x{w} rectangle?", l * w, f"Formula: {l} units × {w} units"
+        return f"What is the AREA of a {l}x{w} rectangle?", l * w, f"L: {l}, W: {w} (L x W)"
     
     else: # Addition
         n1, n2 = random.randint(1, 10 * level), random.randint(1, 10 * level)
-        return f"What is {n1} + {n2}?", n1 + n2, "Try adding the tens first, then the ones!"
+        return f"What is {n1} + {n2}?", n1 + n2, "Add tens, then ones!"
 
-# --- 2. THE UI & AUTO-LEVELING STATE ---
+# --- 2. THE UI & STATE ---
 st.set_page_config(page_title="Math Adventure", page_icon="🎒")
 
 if 'game_active' not in st.session_state:
     st.session_state.game_active = False
     st.session_state.current_level = 1
     st.session_state.streak = 0
+    st.session_state.problem_count = 0  # <--- NEW: Tracks how many problems seen
 
 # Sidebar Settings
 st.sidebar.title("Settings ⚙️")
@@ -72,12 +70,12 @@ if st.sidebar.button("Reset Game 🔄"):
     st.session_state.game_active = False
     st.session_state.current_level = 1
     st.session_state.streak = 0
+    st.session_state.problem_count = 0
     st.rerun()
 
 # --- 3. THE GAME FLOW ---
 if not st.session_state.game_active:
     st.title("Welcome to Math Adventure! 🗺️")
-    st.write("Ready to level up your math skills?")
     if st.button("🚀 Start My Adventure"):
         st.session_state.current_level = start_level
         st.session_state.current_data = generate_math_problem(topic_choice, st.session_state.current_level)
@@ -90,27 +88,23 @@ else:
     st.title(f"Level {st.session_state.current_level} Challenge ⚔️")
     st.write(f"### {question}")
 
-    
-
-    user_ans = st.number_input("Enter your answer:", step=1, value=None, key="math_input")
+    # The KEY below (math_input_...) changes every time problem_count increases!
+    user_ans = st.number_input("Enter your answer:", step=1, value=None, key=f"math_input_{st.session_state.problem_count}")
     
     col1, col2 = st.columns([1, 4])
     with col1:
         if st.button("Submit"):
             if user_ans == answer:
                 st.balloons()
-                st.success(f"Correct! Leveling up to {st.session_state.current_level + 1}! 🌟")
-                
-                # AUTO-LEVEL INCREASE
+                st.success(f"Correct! Leveling up! 🌟")
                 st.session_state.current_level += 1
                 st.session_state.streak += 1
-                
-                # Generate new problem with NEW level
+                st.session_state.problem_count += 1 # <--- Increments to clear the next input box
                 st.session_state.current_data = generate_math_problem(topic_choice, st.session_state.current_level)
                 st.session_state.show_visual = False
                 st.rerun()
             else:
-                st.error("Not quite! Try using the 'Visual Model' below to see the parts.")
+                st.error("Not quite! Try the Visual Model below.")
                 st.session_state.streak = 0
 
     with col2:
@@ -119,6 +113,6 @@ else:
 
     if st.session_state.show_visual:
         st.markdown("#### Visual Hint:")
-        st.code(visual_aid) # Keeps emojis aligned in a neat box
+        st.code(visual_aid)
 
     st.sidebar.write(f"**Current Streak:** {'🔥' * st.session_state.streak if st.session_state.streak > 0 else '0'}")
